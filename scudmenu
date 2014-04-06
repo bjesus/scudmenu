@@ -4,7 +4,7 @@
 # See LICENSE for more information
 
 # systemctl-user-dmenu
-# Use systemctl --user from dmenu. Useful in tiling wms.
+# Use systemctl from dmenu. Useful in tiling wms.
 
 unset opts
 unset service
@@ -25,13 +25,13 @@ dmenucmd() {
   local mesg=$1
   shift
   local printing=("$@")
-  printf "%s\n" "${printing[@]}" | dmenu -fn "${font}" \
+  printf "%s\n" "${printing[@]}" | dmenu -b -fn "${font}" \
     -nb "#000000" -nf "#dddddd" -sb "#333333" -sf "#eeeeee" \
     -p "$mesg"
 }
 
 # pick a font for your dmenu. I use proggyoptis. It's tiny.
-font="${font:="-*-proggyoptis-*-*-*-*-*-*-*-*-*-*-*-*"}"
+font="Consolas-10"
 
 # Specify the options you want to see. `status` is treated specially and should
 # not be removed from the array.
@@ -46,10 +46,13 @@ opts=("start"
 # Use a param to limit this, something like "loaded" or "loaded active"
 # (see below)
 get_systemctl_list() {
-  printf -- "%s" "$(systemctl --no-legend --full --user --type=service,socket --all list-units | sed -n "s/${1}.*//p")"
+  printf -- "%s" "$(systemctl --no-legend --full --type=service,socket --all list-units | sed -n "s/${1}.*//p")"
 }
 get_systemctl_files() {
-  printf -- "%s" "$(systemctl --no-legend --full --user --type=service,socket --all list-unit-files | sed -n "s/ .*//p")"
+  printf -- "%s" "$(systemctl --no-legend --full --type=service,socket --all list-unit-files | sed -n "s/ .*//p")"
+}
+get_systemctl_list_stop_restart() {
+  printf -- "%s" "$(systemctl --no-legend --full --type=service,socket --all list-units | sed -n "s/${1}.*//p")"
 }
 
 # Depending on the case, we want to filter by a specific state of unit.
@@ -67,7 +70,7 @@ find_services () {
       orig_list=($(get_systemctl_list "loaded") )
       ;;
     stop|*restart)
-      orig_list=($(get_systemctl_list "loaded active") )
+      orig_list=($(get_systemctl_list_stop_restart "running") )
       ;;
     *)
       orig_list=($(get_systemctl_files ) )
@@ -85,15 +88,15 @@ cmd="$(dmenucmd "Action:" "${opts[@]}")"
 # just as running it from the command line, though dmenu will only display the
 # first one.
 service=($(find_services "$cmd"))
-unit="$(dmenucmd "systemctl --user $cmd" "${service[@]}")"
+unit="$(dmenucmd "gksudo systemctl $cmd" "${service[@]}")"
 
 [[ -z $unit ]] && exit 2
 
 # The actual running of commands. `status`, as stated above, is treated
-# specially, and will open a urxvt window displaying the status output,
-# otherwise we just run systemctl --user with the specified command and unit.
+# specially, and will open a mlterm window displaying the status output,
+# otherwise we just run systemctl with the specified command and unit.
 if [[ $cmd == "status" ]]; then
-  urxvt -title "scustatus" -e /usr/bin/bash -c "systemctl --user $cmd $unit; read "
+  mlterm -title "scustatus" -e /usr/bin/bash -c "gksudo systemctl $cmd $unit; read "
 else
-  systemctl --user "$cmd" "$unit"
+  gksudo systemctl "$cmd" "$unit"
 fi
